@@ -8,7 +8,38 @@ function decodeHTMLEntities(text) {
     return textArea.value;
 }
 
-export function QuizApp({ sessionId }) {
+function UsernamePopup({ onSubmit }) {
+    const [username, setUsername] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (username.trim()) {
+            onSubmit(username.trim());
+        }
+    };
+
+    return (
+        <div className="popup-overlay">
+            <div className="popup-content">
+                <h2>Enter Your Username</h2>
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Username"
+                        required
+                    />
+                    <button type="submit">Start Quiz</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+export function QuizApp() {
+    const [sessionId, setSessionId] = useState(null);
+    const [username, setUsername] = useState(null);
     const [question, setQuestion] = useState(null);
     const [showScore, setShowScore] = useState(false);
     const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -16,9 +47,19 @@ export function QuizApp({ sessionId }) {
     const [questionNumber, setQuestionNumber] = useState(1); // Start from 1
     const [apiCorrectAnswer, setApiCorrectAnswer] = useState(null);
     const [finalScore, setFinalScore] = useState(null);
-    const [username, setUsername] = useState("Anonymous");
     const [leaderboard, setLeaderboard] = useState([]);
     const [hasInitialQuestion, setHasInitialQuestion] = useState(false);
+
+    const startQuiz = async (enteredUsername) => {
+        try {
+            const response = await fetch(`http://10.255.249.200:5000/startquiz?username=${encodeURIComponent(enteredUsername)}`);
+            const data = await response.json();
+            setSessionId(data.session_id);
+            setUsername(enteredUsername);
+        } catch (error) {
+            console.error('Error starting quiz:', error);
+        }
+    };
 
     const fetchQuestion = async () => {
         if (!sessionId) return;
@@ -29,7 +70,6 @@ export function QuizApp({ sessionId }) {
             if (data.score !== undefined && data.username !== undefined) {
                 setShowScore(true);
                 setFinalScore(data.score);
-                setUsername(data.username);
                 setLeaderboard(data.leaderboard || []);
                 setQuestion(null);
             } else {
@@ -48,10 +88,10 @@ export function QuizApp({ sessionId }) {
     };
 
     useEffect(() => {
-        if (sessionId) {
+        if (sessionId && username) {
             fetchQuestion();
         }
-    }, [sessionId]);
+    }, [sessionId, username]);
 
     const handleAnswerClick = async (selectedAnswer) => {
         if (answerState !== null) return;
@@ -86,9 +126,17 @@ export function QuizApp({ sessionId }) {
         }
     };
 
+    if (!sessionId || !username) {
+        return <UsernamePopup onSubmit={startQuiz} />;
+    }
+
     if (showScore) {
         return (
             <div className="quiz-container">
+                <div className="session-info">
+                    <p>Session ID: {sessionId}</p>
+                    <p>Username: {username}</p>
+                </div>
                 <div className="score-section">
                     {username}, you scored {finalScore} / 10
                 </div>
@@ -121,6 +169,10 @@ export function QuizApp({ sessionId }) {
 
     return (
         <div className="quiz-container">
+            <div className="session-info">
+                <p>Session ID: {sessionId}</p>
+                <p>Username: {username}</p>
+            </div>
             <div className="question-section">
                 <div className="question-count">
                     <span>Question {questionNumber}</span>/10
