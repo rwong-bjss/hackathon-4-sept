@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import './styles.css';
-import ReactDOM from 'react-dom';
 
 // Utility function to decode HTML entities
 function decodeHTMLEntities(text) {
@@ -9,7 +8,7 @@ function decodeHTMLEntities(text) {
     return textArea.value;
 }
 
-export function QuizApp({ sessionId, initialQuestionId }) {
+export function QuizApp({ sessionId }) {
     const [question, setQuestion] = useState(null);
     const [showScore, setShowScore] = useState(false);
     const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -18,6 +17,8 @@ export function QuizApp({ sessionId, initialQuestionId }) {
     const [apiCorrectAnswer, setApiCorrectAnswer] = useState(null);
     const [finalScore, setFinalScore] = useState(null);
     const [username, setUsername] = useState("Anonymous");
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [hasInitialQuestion, setHasInitialQuestion] = useState(false);
 
     const fetchQuestion = async () => {
         if (!sessionId) return;
@@ -29,14 +30,17 @@ export function QuizApp({ sessionId, initialQuestionId }) {
                 setShowScore(true);
                 setFinalScore(data.score);
                 setUsername(data.username);
+                setLeaderboard(data.leaderboard || []);
                 setQuestion(null);
             } else {
+                // Decode the question data
                 const decodedData = {
                     ...data,
                     question: decodeHTMLEntities(data.question),
                     answers: data.answers.map(decodeHTMLEntities)
                 };
                 setQuestion(decodedData);
+                setHasInitialQuestion(true);
             }
         } catch (error) {
             console.error('Error fetching question:', error);
@@ -44,7 +48,7 @@ export function QuizApp({ sessionId, initialQuestionId }) {
     };
 
     useEffect(() => {
-        if (sessionId && !question) {
+        if (sessionId) {
             fetchQuestion();
         }
     }, [sessionId]);
@@ -65,11 +69,6 @@ export function QuizApp({ sessionId, initialQuestionId }) {
             });
             const data = await response.json();
             
-            if (data.error === "Question already answered") {
-                console.warn("This question has already been answered.");
-                return;
-            }
-            
             const decodedCorrectAnswer = decodeHTMLEntities(data.correct_answer);
             setApiCorrectAnswer(decodedCorrectAnswer);
             setAnswerState(data.correct ? 'correct' : 'incorrect');
@@ -79,7 +78,7 @@ export function QuizApp({ sessionId, initialQuestionId }) {
                 setAnswerState(null);
                 setApiCorrectAnswer(null);
                 setQuestionNumber(prevNumber => prevNumber + 1);
-                fetchQuestion(); // Fetch next question or final score
+                fetchQuestion(); // This will fetch the next question
             }, 2000);
         } catch (error) {
             console.error('Error submitting answer:', error);
@@ -92,6 +91,27 @@ export function QuizApp({ sessionId, initialQuestionId }) {
             <div className="quiz-container">
                 <div className="score-section">
                     {username}, you scored {finalScore} / 10
+                </div>
+                <div className="leaderboard-section">
+                    <h2>Leaderboard</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Username</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {leaderboard.map(([user, score], index) => (
+                                <tr key={index} className={user === username ? 'current-user' : ''}>
+                                    <td>{index + 1}</td>
+                                    <td>{user}</td>
+                                    <td>{score}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         );
